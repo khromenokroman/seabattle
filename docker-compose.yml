@@ -1,0 +1,7 @@
+# Запуск seabattle в Docker: docker compose up -d, игра http://адрес:8090/
+services:
+  seabattle:
+    image: ghcr.io/khromenokroman/seabattle:latest
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
