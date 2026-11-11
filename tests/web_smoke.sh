@@ -2,7 +2,8 @@
 # tests/web_smoke.sh <путь к seabattle> <каталог web>
 # Проверка веб-клиента в headless Chrome: стартовый экран, ожидание по сессии из
 # localStorage, экран боя после расстановки обоих через API, отсутствие горизонтальной
-# прокрутки на ширине 360 и 1280. Управление Chrome - через CDP на чистом node
+# прокрутки на ширине 360 и 1280, целая партия двух игроков кликами (tests/e2e/ui_game.js).
+# Управление Chrome - через CDP на чистом node
 # (tests/e2e/drive.js), без npm-пакетов. Скриншоты - в каталог $SHOTS (если задан).
 
 set -u
@@ -82,10 +83,10 @@ run() { # <фаза> <ширина> <высота> <localStorage json | '-'>
     fi
 }
 
-echo 'проверка 1/5: стартовый экран'
+echo 'проверка 1/6: стартовый экран'
 run start 1280 900 - || fail 'стартовый экран'
 
-echo 'проверка 2/5: экран ожидания по сессии из localStorage'
+echo 'проверка 2/6: экран ожидания по сессии из localStorage'
 JOINED=$(curl -fsS -X POST "$BASE/api/rooms" -H 'Content-Type: application/json' -d '{"name":"Смоук"}') \
     || fail 'создание комнаты через API'
 ROOM=$(printf '%s' "$JOINED" | json_field room)
@@ -94,7 +95,7 @@ TOKEN=$(printf '%s' "$JOINED" | json_field token)
 SESSION=$(printf '{"room":"%s","token":"%s"}' "$ROOM" "$TOKEN")
 run wait 1280 900 "$SESSION" || fail 'экран ожидания'
 
-echo 'проверка 3/5: экран боя после входа второго и расстановки через API'
+echo 'проверка 3/6: экран боя после входа второго и расстановки через API'
 JOIN2=$(curl -fsS -X POST "$BASE/api/rooms/$ROOM/join" -H 'Content-Type: application/json' -d '{"name":"Второй"}') \
     || fail 'вход второго игрока через API'
 TOKEN2=$(printf '%s' "$JOIN2" | json_field token)
@@ -108,10 +109,14 @@ place "$TOKEN"
 place "$TOKEN2"
 run battle 1280 900 "$SESSION" || fail 'экран боя'
 
-echo 'проверка 4/5: нет горизонтальной прокрутки при ширине 360'
+echo 'проверка 4/6: нет горизонтальной прокрутки при ширине 360'
 run scroll 360 800 "$SESSION" || fail 'прокрутка при ширине 360'
 
-echo 'проверка 5/5: нет горизонтальной прокрутки при ширине 1280'
+echo 'проверка 5/6: нет горизонтальной прокрутки при ширине 1280'
 run scroll 1280 900 "$SESSION" || fail 'прокрутка при ширине 1280'
+
+echo 'проверка 6/6: партия двух игроков через интерфейс (кнопки и клики по клеткам)'
+E2E_TIMEOUT=120 WIDTH=1300 HEIGHT=1800 CHROME=$CHROME_BIN SHOTS=${SHOTS:-} \
+    node "$DIR/e2e/drive.js" "$BASE/" "$DIR/e2e/ui_game.js" || fail 'партия через интерфейс'
 
 echo 'web_smoke: все проверки прошли'
