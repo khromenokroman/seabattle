@@ -1,0 +1,19 @@
+[Unit]
+Description=Морской бой: игровой сервер
+Documentation=https://github.com/khromenokroman/seabattle
+After=network.target
+
+[Service]
+User=seabattle
+Group=seabattle
+EnvironmentFile=-@CMAKE_INSTALL_FULL_SYSCONFDIR@/default/seabattle
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/seabattle --web @SEABATTLE_WEB_DIR@ $SEABATTLE_OPTS
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target

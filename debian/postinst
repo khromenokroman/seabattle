@@ -1,0 +1,28 @@
+#!/bin/sh
+# Пользователь службы, включение и (пере)запуск службы.
+set -e
+
+if [ "$1" = "configure" ]; then
+    if ! getent passwd seabattle >/dev/null; then
+        adduser --system --group --quiet --home /nonexistent --no-create-home seabattle
+    fi
+fi
+
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ]; then
+    # как dh_installsystemd: служба включается при установке, выключенная администратором - остаётся выключенной
+    deb-systemd-helper unmask seabattle.service >/dev/null || true
+    if deb-systemd-helper --quiet was-enabled seabattle.service; then
+        deb-systemd-helper enable seabattle.service >/dev/null || true
+    else
+        deb-systemd-helper update-state seabattle.service >/dev/null || true
+    fi
+    if [ -d /run/systemd/system ]; then
+        systemctl --system daemon-reload >/dev/null || true
+        if [ -n "$2" ]; then
+            deb-systemd-invoke restart seabattle.service >/dev/null
+        else
+            deb-systemd-invoke start seabattle.service >/dev/null
+        fi
+    fi
+fi
+exit 0

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Снятие службы. Пользователь seabattle остаётся и при purge, как принято для системных пользователей.
+set -e
+
+if [ -d /run/systemd/system ]; then
+    systemctl --system daemon-reload >/dev/null || true
+fi
+if [ "$1" = "remove" ]; then
+    deb-systemd-helper mask seabattle.service >/dev/null || true
+fi
+if [ "$1" = "purge" ]; then
+    deb-systemd-helper purge seabattle.service >/dev/null || true
+    deb-systemd-helper unmask seabattle.service >/dev/null || true
+fi
+exit 0

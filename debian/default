@@ -1,0 +1,6 @@
+# Параметры службы seabattle. После изменения: systemctl restart seabattle
+#
+# --host 0.0.0.0    доступ из сети (без шифрования: снаружи ставить за обратный прокси с HTTPS)
+# --host 127.0.0.1  только с этой машины
+# --port            порт HTTP
+SEABATTLE_OPTS="--host 0.0.0.0 --port 8090"

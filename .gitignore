@@ -1,0 +1,7 @@
+.idea
+CLAUDE.md
+AGENTS.md
+cmake-build-*
+build
+__pycache__
+tasks
