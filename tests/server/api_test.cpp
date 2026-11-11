@@ -120,6 +120,7 @@ TEST_F(ApiTest, RoomsAndErrors) {
         {"выстрел до расстановки", post("/api/fire", {{"token", a["token"]}, {"x", 0}, {"y", 0}}), 409},
         {"выстрел без координат", post("/api/fire", {{"token", a["token"]}}), 400},
         {"расстановка без ships", post("/api/place", {{"token", a["token"]}}), 400},
+        {"x вне int", post("/api/fire", {{"token", a["token"]}, {"x", 4294967299LL}, {"y", 0}}), 400},
     };
     EXPECT_EQ(client_raw->status, 400) << "неправильный JSON";
     for (const auto &c : cases) {
@@ -176,4 +177,21 @@ TEST_F(ApiTest, Events) {
     EXPECT_EQ(content_type, "text/event-stream");
     EXPECT_EQ(buffer.rfind("event: state\ndata: ", 0), 0u) << "первым идёт снимок: " << buffer;
     EXPECT_NE(buffer.find(": ping\n\n"), std::string::npos) << "через 50 мс ping: " << buffer;
+}
+
+// Второй поток того же токена: первый получает event: closed с reason replaced и закрывается
+TEST_F(ApiTest, EventsReplaced) {
+    const auto a = post("/api/rooms", {{"name", "Рома"}}).second;
+    const std::string token = a["token"];
+    std::string buffer;
+    std::thread second;
+    client().Get("/api/events?token=" + token, [&](const char *data, std::size_t size) {
+        buffer.append(data, size);
+        if (!second.joinable() && buffer.find("event: state") != std::string::npos) {
+            second = std::thread([this, token] { first_state(token); });
+        }
+        return buffer.find("event: closed") == std::string::npos;
+    });
+    if (second.joinable()) second.join();
+    EXPECT_NE(buffer.find("event: closed\ndata: {\"reason\":\"replaced\"}"), std::string::npos) << buffer;
 }

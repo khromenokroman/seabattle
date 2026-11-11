@@ -1,5 +1,6 @@
 #include "api.hpp"
 
+#include <iostream>
 #include <memory>
 #include <random>
 
@@ -34,13 +35,6 @@ std::string get_string(const nlohmann::json &body, const char *key) {
         throw RoomError(400, std::string("Нет строкового поля ") + key);
     }
     return body[key].get<std::string>();
-}
-
-int get_int(const nlohmann::json &body, const char *key) {
-    if (!body.contains(key) || !body[key].is_number_integer()) {
-        throw RoomError(400, std::string("Нет целого поля ") + key);
-    }
-    return body[key].get<int>();
 }
 
 /// Обработчик с переводом RoomError и std::invalid_argument в ответ с ошибкой.
@@ -110,7 +104,7 @@ void setup_api(httplib::Server &server, RoomManager &rooms, ApiConfig config) {
     server.Post("/api/fire", guarded([&rooms](const httplib::Request &req, httplib::Response &res) {
                     const auto body = parse_body(req);
                     const auto token = get_string(body, "token");
-                    const Coord at{get_int(body, "x"), get_int(body, "y")};
+                    const Coord at{get_int_field(body, "x"), get_int_field(body, "y")};
                     reply(res, {{"result", shot_result_name(rooms.fire(token, at))}});
                 }));
 
@@ -134,20 +128,32 @@ void setup_api(httplib::Server &server, RoomManager &rooms, ApiConfig config) {
                    res.set_chunked_content_provider(
                        "text/event-stream",
                        [&rooms, token, stream, seen, config](std::size_t, httplib::DataSink &sink) {
-                           nlohmann::json state;
-                           std::string chunk;
-                           switch (rooms.wait_event(token, stream, *seen, state, config.ping)) {
-                               case StreamEvent::STATE:
-                                   chunk = "event: state\ndata: " + state.dump() + "\n\n";
-                                   break;
-                               case StreamEvent::PING:
-                                   chunk = ": ping\n\n";
-                                   break;
-                               case StreamEvent::CLOSED:
-                                   sink.done();
-                                   return true;
+                           // исключение из провайдера httplib не перехватывает: оно завершило бы весь процесс
+                           try {
+                               nlohmann::json state;
+                               std::string chunk;
+                               switch (rooms.wait_event(token, stream, *seen, state, config.ping)) {
+                                   case StreamEvent::STATE:
+                                       chunk = "event: state\ndata: " + state.dump() + "\n\n";
+                                       break;
+                                   case StreamEvent::PING:
+                                       chunk = ": ping\n\n";
+                                       break;
+                                   case StreamEvent::REPLACED:
+                                       chunk = "event: closed\ndata: {\"reason\":\"replaced\"}\n\n";
+                                       sink.write(chunk.data(), chunk.size());
+                                       sink.done();
+                                       return true;
+                                   case StreamEvent::CLOSED:
+                                       sink.done();
+                                       return true;
+                               }
+                               return sink.write(chunk.data(), chunk.size());
+                           } catch (const std::exception &e) {
+                               std::cerr << "поток событий: " << e.what() << '\n';
+                               sink.done();
+                               return true;
                            }
-                           return sink.write(chunk.data(), chunk.size());
                        },
                        [&rooms, token, stream](bool) { rooms.close_stream(token, stream); });
                }));

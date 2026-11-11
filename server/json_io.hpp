@@ -13,6 +13,15 @@
 namespace seabattle::server {
 
 /**
+ * @brief Целое поле объекта в пределах int.
+ *
+ * nlohmann::json::get<int>() не проверяет диапазон: 4294967299 молча становится 3, поэтому значение
+ * читается как 64-битное и сверяется с границами int.
+ * @throw std::invalid_argument если поля нет, оно не целое или не помещается в int
+ */
+int get_int_field(const nlohmann::json &j, const char *key);
+
+/**
  * @brief Корабль в JSON: {"x", "y", "len", "dir": "h" | "v"}.
  */
 nlohmann::json ship_to_json(const Ship &ship);

@@ -246,7 +246,7 @@ TEST(Rooms, StreamEvents) {
     EXPECT_EQ(state["placed"]["opponent"], true) << state.dump();
 }
 
-// Признак connected у противника и закрытие старого потока при новом
+// Признак connected у противника и REPLACED у старого потока при открытии нового
 TEST(Rooms, StreamConnected) {
     Pair p;
     EXPECT_EQ(p.rooms.snapshot(p.b.token)["opponent"]["connected"], false);
@@ -256,7 +256,7 @@ TEST(Rooms, StreamConnected) {
     const auto second = p.rooms.open_stream(p.a.token);
     std::uint64_t seen = 0;
     json state;
-    EXPECT_EQ(p.rooms.wait_event(p.a.token, first, seen, state, 10ms), StreamEvent::CLOSED) << "старый поток";
+    EXPECT_EQ(p.rooms.wait_event(p.a.token, first, seen, state, 10ms), StreamEvent::REPLACED) << "старый поток";
     p.rooms.close_stream(p.a.token, first);
     EXPECT_EQ(p.rooms.snapshot(p.b.token)["opponent"]["connected"], true) << "закрытие старого не трогает новый";
 
@@ -290,4 +290,21 @@ TEST(Rooms, Cleanup) {
     EXPECT_EQ(rooms.cleanup(now + 31min, 30min), 1u);
     EXPECT_ROOM_ERROR(rooms.me(idle.token), 401);
     EXPECT_EQ(rooms.me(online.token).name, "Здесь");
+}
+
+// Предел числа комнат: после MAX_ROOMS создание отклоняется с 503, вход в существующую работает
+TEST(Rooms, RoomLimit) {
+    RoomManager rooms(1);
+    Joined first;
+    for (std::size_t i = 0; i < RoomManager::MAX_ROOMS; ++i) {
+        const auto j = rooms.create_room("Игрок");
+        if (i == 0) first = j;
+    }
+    EXPECT_EQ(rooms.room_count(), RoomManager::MAX_ROOMS);
+    EXPECT_ROOM_ERROR(rooms.create_room("Лишний"), 503);
+    const auto second = rooms.join_room(first.room, "Второй");
+    EXPECT_EQ(second.player, 1) << "вход в существующую комнату не ограничен";
+    rooms.leave(first.token);
+    rooms.leave(second.token);
+    EXPECT_NO_THROW(rooms.create_room("Новый")) << "после выхода обоих комната удалена, место освободилось";
 }

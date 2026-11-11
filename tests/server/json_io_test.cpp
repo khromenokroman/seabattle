@@ -42,3 +42,16 @@ TEST(JsonIo, ShotResultNames) {
     EXPECT_STREQ(shot_result_name(ShotResult::SUNK), "sunk");
     EXPECT_STREQ(shot_result_name(ShotResult::ALREADY_SHOT), "");
 }
+
+// Числа вне int отклоняются, а не заворачиваются (4294967299 у get<int>() стало бы 3)
+TEST(JsonIo, IntRange) {
+    EXPECT_EQ(get_int_field(json{{"x", -5}}, "x"), -5);
+    EXPECT_EQ(get_int_field(json{{"x", 2147483647}}, "x"), 2147483647);
+    const std::vector<json> bad = {json::parse(R"({"x":4294967299})"), json::parse(R"({"x":-2147483649})"),
+                                   json::parse(R"({"x":18446744073709551615})"), json{{"x", 1.0}}, json{{"y", 1}}};
+    for (const auto &j : bad) {
+        SCOPED_TRACE("json: " + j.dump());
+        EXPECT_THROW(get_int_field(j, "x"), std::invalid_argument);
+    }
+    EXPECT_THROW(ship_from_json(json::parse(R"({"x":4294967299,"y":0,"len":1})")), std::invalid_argument) << "x корабля вне int";
+}

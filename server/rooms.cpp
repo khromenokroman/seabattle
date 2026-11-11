@@ -103,6 +103,7 @@ RoomManager::Seat RoomManager::seat_locked(const std::string &token) const {
 Joined RoomManager::create_room(const std::string &name) {
     const auto clean = normalize_name(name);
     std::lock_guard lock(m_mutex);
+    if (m_rooms.size() >= MAX_ROOMS) throw RoomError(503, "Сервер занят: слишком много комнат, попробуйте позже");
     const auto code = new_code();
     auto &room = m_rooms[code];
     room.code = code;
@@ -291,7 +292,7 @@ StreamEvent RoomManager::wait_event(const std::string &token, std::uint64_t stre
         const auto it = m_tokens.find(token);
         if (it == m_tokens.end()) return StreamEvent::CLOSED;
         const auto &room = *it->second.room;
-        if (room.players[it->second.player]->stream != stream) return StreamEvent::CLOSED;
+        if (room.players[it->second.player]->stream != stream) return StreamEvent::REPLACED;
         if (room.version != seen) return StreamEvent::STATE;
         return std::nullopt;
     };

@@ -1,5 +1,7 @@
 #include "json_io.hpp"
 
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 
 namespace seabattle::server {
@@ -8,16 +10,23 @@ nlohmann::json ship_to_json(const Ship &ship) {
     return {{"x", ship.origin.x}, {"y", ship.origin.y}, {"len", ship.length}, {"dir", ship.orientation == Orientation::HORIZONTAL ? "h" : "v"}};
 }
 
+int get_int_field(const nlohmann::json &j, const char *key) {
+    if (!j.is_object() || !j.contains(key) || !j[key].is_number_integer()) {
+        throw std::invalid_argument(std::string("Нет целого поля ") + key);
+    }
+    const auto &v = j[key];
+    const bool fits = v.is_number_unsigned()
+                          ? v.get<std::uint64_t>() <= static_cast<std::uint64_t>(std::numeric_limits<int>::max())
+                          : v.get<std::int64_t>() >= std::numeric_limits<int>::min() && v.get<std::int64_t>() <= std::numeric_limits<int>::max();
+    if (!fits) throw std::invalid_argument(std::string("Поле ") + key + " вне допустимого диапазона");
+    return static_cast<int>(v.get<std::int64_t>());
+}
+
 Ship ship_from_json(const nlohmann::json &j) {
     if (!j.is_object()) throw std::invalid_argument("Корабль должен быть объектом");
-    for (const char *key : {"x", "y", "len"}) {
-        if (!j.contains(key) || !j[key].is_number_integer()) {
-            throw std::invalid_argument(std::string("У корабля нет целого поля ") + key);
-        }
-    }
     Ship ship;
-    ship.origin = {j["x"].get<int>(), j["y"].get<int>()};
-    ship.length = j["len"].get<int>();
+    ship.origin = {get_int_field(j, "x"), get_int_field(j, "y")};
+    ship.length = get_int_field(j, "len");
     const auto dir = j.value("dir", std::string("h"));
     if (dir == "h") {
         ship.orientation = Orientation::HORIZONTAL;
