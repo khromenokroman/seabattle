@@ -26,6 +26,7 @@ let state = null; // последний снимок
 let events = null; // EventSource
 let reconnectTimer = 0;
 let firing = false;
+let pendingShot = null; // 'x,y' выстрела, которого ещё нет в снимке: защита от второго клика по той же клетке
 let prevPhase = null;
 
 // расстановка до отправки: корабли, корабль «в руке», клетка под указателем
@@ -72,8 +73,16 @@ function connect() {
     events = new EventSource('/api/events?token=' + encodeURIComponent(session.token));
     events.addEventListener('state', (e) => {
         $('conn-banner').hidden = true;
+        $('replaced-banner').hidden = true;
         state = JSON.parse(e.data);
+        settlePendingShot();
         render();
+    });
+    // игра открыта в другой вкладке: не переподключаться самим, иначе вкладки будут отбирать поток друг у друга
+    events.addEventListener('closed', () => {
+        disconnect();
+        $('conn-banner').hidden = true;
+        $('replaced-banner').hidden = false;
     });
     events.onerror = () => {
         disconnect();
@@ -118,8 +127,11 @@ function forgetSession() {
     disconnect();
     session = null;
     state = null;
+    pendingShot = null;
     store.remove(STORE_SESSION);
     $('conn-banner').hidden = true;
+    $('replaced-banner').hidden = true;
+    history.replaceState(null, '', location.pathname);
     render();
 }
 
@@ -283,18 +295,30 @@ function onOwnCell(x, y) {
     render();
 }
 
+/** Снять отметку выстрела, когда он появился в снимке или партия уже не идёт. */
+function settlePendingShot() {
+    if (!pendingShot) return;
+    if (!state || state.phase !== 'playing' || state.enemy.shots.some((s) => key(s.x, s.y) === pendingShot)) {
+        pendingShot = null;
+    }
+}
+
 async function onEnemyCell(x, y) {
-    if (!state || state.phase !== 'playing' || state.turn !== 'you' || firing) return;
+    if (!state || state.phase !== 'playing' || state.turn !== 'you' || firing || pendingShot) return;
     if (state.enemy.shots.some((s) => s.x === x && s.y === y)) return;
     firing = true;
+    pendingShot = key(x, y);
     enemyBoard.el.classList.remove('active');
     try {
         await api('/api/fire', { token: session.token, x, y });
     } catch (e) {
+        pendingShot = null;
+        if (e.status === 401) forgetSession();
         toast(e.message);
     } finally {
         firing = false;
-        render();
+        settlePendingShot();
+        if (state) render();
     }
 }
 
@@ -412,7 +436,7 @@ function renderEnemy() {
         addClass(map, s.x, s.y, s.hit ? 'hit' : 'miss');
         shot.add(key(s.x, s.y));
     }
-    const active = state.phase === 'playing' && state.turn === 'you' && !firing;
+    const active = state.phase === 'playing' && state.turn === 'you' && !firing && !pendingShot;
     if (active) {
         for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (!shot.has(key(x, y))) addClass(map, x, y, 'free');
     }
@@ -531,6 +555,10 @@ $('btn-resign').addEventListener('click', async () => {
 });
 
 $('btn-rematch').addEventListener('click', () => action('/api/rematch'));
+$('btn-here').addEventListener('click', () => {
+    $('replaced-banner').hidden = true;
+    if (session) connect();
+});
 
 $('dock').addEventListener('click', (e) => {
     const item = e.target.closest('.dock-item');
