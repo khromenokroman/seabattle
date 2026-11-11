@@ -72,6 +72,17 @@ if (BUILD_TESTS)
     )
     target_link_libraries(${PROJECT_NAME}-server-tests PRIVATE ${PROJECT_NAME}-server GTest::gtest_main)
     gtest_discover_tests(${PROJECT_NAME}-server-tests)
+
+    # сквозная партия двух клиентов по HTTP против живого сервера
+    find_package(Python3 COMPONENTS Interpreter)
+    if (Python3_Interpreter_FOUND)
+        add_test(NAME e2e_game
+                COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e_game.py
+                $<TARGET_FILE:${PROJECT_NAME}>
+                ${CMAKE_CURRENT_SOURCE_DIR}/web)
+        set_tests_properties(e2e_game PROPERTIES TIMEOUT 180)
+    endif ()
 endif ()
 
 install(TARGETS ${PROJECT_NAME}
