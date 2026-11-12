@@ -16,11 +16,12 @@ async function waitFor(cond, text, ms) {
     throw new Error(text);
 }
 
-async function player(name) {
+async function player(name, src) {
+    localStorage.removeItem('seabattle.session'); // iframe делят localStorage: новый игрок без чужой сессии
     const frame = document.createElement('iframe');
     frame.style.cssText = 'width:1100px;height:800px;border:0';
     document.body.appendChild(frame);
-    await new Promise((resolve) => { frame.onload = resolve; frame.src = '/'; });
+    await new Promise((resolve) => { frame.onload = resolve; frame.src = src || '/'; });
     const win = frame.contentWindow;
     win.addEventListener('error', (e) => errors.push(`${name}: ${e.message}`));
     win.addEventListener('unhandledrejection', (e) => errors.push(`${name}: ${e.reason}`));
@@ -37,21 +38,42 @@ async function player(name) {
 document.body.innerHTML = '';
 document.body.style.background = '#fff';
 const a = await player('Алиса');
-const b = await player('Борис');
-await waitFor(() => a.shown('screen-start') && b.shown('screen-start'), 'стартовые экраны не появились');
+await waitFor(() => a.shown('screen-start'), 'стартовый экран не появился');
+expect(a.shown('start-choice') && !a.shown('join-form'), 'на главной не выбор «Создать игру» / «Войти по коду»');
 
-// создание комнаты и вход по коду
+// создание комнаты, копирование ссылки
 a.$('name').value = 'Алиса';
 a.$('btn-create').click();
 await waitFor(() => a.shown('screen-wait'), 'Алиса: нет экрана ожидания после «Создать игру»');
 const code = a.$('wait-code').textContent.trim();
 expect(/^[A-Z0-9]{4}$/.test(code), `код комнаты "${code}"`);
-expect(a.$('share-link').value.endsWith('#' + code), `ссылка ${a.$('share-link').value} без кода`);
+const link = a.$('share-link').textContent.trim();
+expect(link.endsWith('#' + code), `ссылка ${link} без кода`);
+a.$('btn-copy').click();
+await waitFor(() => /скопирована/.test(a.$('btn-copy').textContent) || /скопируйте/.test(a.$('toast').textContent),
+    '«Скопировать ссылку» ничего не сделала');
+
+// Борис приходит по ссылке: только вход в эту комнату, без «Создать игру»
+const b = await player('Борис', '/#' + code.toLowerCase());
+await waitFor(() => b.shown('screen-start'), 'Борис: стартовый экран не появился');
+expect(!b.shown('start-choice') && b.shown('invite') && !b.shown('code-field'), 'по ссылке не экран приглашения');
+expect(b.$('invite-code').textContent === code, `по ссылке код «${b.$('invite-code').textContent}» вместо ${code}`);
 b.$('name').value = 'Борис';
-b.$('code').value = code.toLowerCase();
-b.$('join-form').requestSubmit();
+b.$('btn-join').click();
 await waitFor(() => a.shown('screen-game') && b.shown('screen-game'), 'после входа Бориса нет экрана расстановки');
-log.push(`комната ${code}: создана кнопкой, Борис вошёл по коду в нижнем регистре`);
+
+// третий: «Войти по коду» с главной, комната занята - ошибка и «Назад» к выбору
+const c = await player('Вера');
+c.$('name').value = 'Вера';
+c.$('btn-to-join').click();
+expect(c.shown('join-form') && c.shown('code-field') && !c.shown('start-choice'), '«Войти по коду» не открыла поле кода');
+c.$('code').value = code.toLowerCase();
+c.$('btn-join').click();
+await waitFor(() => c.$('start-error').textContent !== '', 'третий игрок вошёл в занятую комнату');
+const busy = c.$('start-error').textContent;
+c.$('btn-back').click();
+expect(c.shown('start-choice') && !c.shown('join-form'), '«Назад» не вернула к выбору');
+log.push(`комната ${code}: создана, ссылка скопирована; Борис по ссылке (только «Войти»), третий по коду получил «${busy}»`);
 
 // Алиса расставляет вручную: выбор корабля в доке и клик по клетке; сначала неудачная попытка у края
 a.$('dock').querySelector('[data-len="4"]').click();

@@ -22,6 +22,8 @@ const store = {
 // ---------- состояние клиента ----------
 
 let session = store.get(STORE_SESSION); // {room, token}
+let pendingInvite = ''; // код из ссылки, открытой во время другой игры
+const CODE_RE = /^[A-Z0-9]{4}$/;
 let state = null; // последний снимок
 let events = null; // EventSource
 let reconnectTimer = 0;
@@ -131,7 +133,10 @@ function forgetSession() {
     store.remove(STORE_SESSION);
     $('conn-banner').hidden = true;
     $('replaced-banner').hidden = true;
-    history.replaceState(null, '', location.pathname);
+    // ссылка на другую комнату, открытая во время игры, становится приглашением после выхода
+    history.replaceState(null, '', location.pathname + (pendingInvite ? '#' + pendingInvite : ''));
+    pendingInvite = '';
+    setStartMode();
     render();
 }
 
@@ -366,7 +371,7 @@ function render() {
     if (phase === 'waiting') {
         showScreen('screen-wait');
         $('wait-code').textContent = state.room;
-        $('share-link').value = location.origin + location.pathname + '#' + state.room;
+        $('share-link').textContent = location.origin + location.pathname + '#' + state.room;
         return;
     }
     showScreen('screen-game');
@@ -500,6 +505,36 @@ function readName() {
     return name;
 }
 
+// Стартовый экран: выбор «Создать» / «Войти по коду»; по ссылке с кодом - только вход в эту комнату.
+
+function hashCode() {
+    const code = location.hash.replace('#', '').toUpperCase();
+    return CODE_RE.test(code) ? code : '';
+}
+
+function setStartMode(mode) {
+    const invite = hashCode();
+    mode = mode || (invite ? 'invite' : 'choice');
+    $('start-choice').hidden = mode !== 'choice';
+    $('join-form').hidden = mode === 'choice';
+    $('code-field').hidden = mode === 'invite';
+    $('btn-back').hidden = mode === 'invite';
+    $('invite').hidden = mode !== 'invite';
+    $('start-lead').hidden = mode === 'invite';
+    $('btn-home').hidden = true;
+    $('start-error').textContent = '';
+    $('invite-code').textContent = invite;
+    if (mode === 'join') $('code').value = '';
+    return mode;
+}
+
+function focusStart(mode) {
+    if (!$('name').value) $('name').focus();
+    else if (mode === 'join') $('code').focus();
+    else if (mode === 'invite') $('btn-join').focus();
+    else $('btn-create').focus();
+}
+
 $('btn-create').addEventListener('click', async () => {
     $('start-error').textContent = '';
     const name = readName();
@@ -511,13 +546,24 @@ $('btn-create').addEventListener('click', async () => {
     }
 });
 
+$('btn-to-join').addEventListener('click', () => focusStart(setStartMode('join')));
+$('btn-back').addEventListener('click', () => focusStart(setStartMode('choice')));
+$('btn-home').addEventListener('click', () => {
+    history.replaceState(null, '', location.pathname);
+    focusStart(setStartMode('choice'));
+});
+window.addEventListener('hashchange', () => {
+    if (!session) focusStart(setStartMode());
+});
+
 $('join-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     $('start-error').textContent = '';
     const name = readName();
     if (!name) return;
-    const code = $('code').value.trim().toUpperCase();
-    if (!/^[A-Z0-9]{4}$/.test(code)) {
+    const invite = !$('invite').hidden;
+    const code = invite ? hashCode() : $('code').value.trim().toUpperCase();
+    if (!CODE_RE.test(code)) {
         $('start-error').textContent = 'Код комнаты: 4 буквы или цифры';
         return;
     }
@@ -525,18 +571,50 @@ $('join-form').addEventListener('submit', async (e) => {
         startSession(await api(`/api/rooms/${code}/join`, { name }));
     } catch (err) {
         $('start-error').textContent = err.message;
+        // по ссылке в несуществующую или занятую комнату - выход на главный экран
+        if (invite) $('btn-home').hidden = false;
     }
 });
 
-$('btn-copy').addEventListener('click', async () => {
-    const input = $('share-link');
+// navigator.clipboard есть только на HTTPS и localhost; по http://адрес копирует execCommand
+async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {
+            // ниже запасной способ
+        }
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
     try {
-        await navigator.clipboard.writeText(input.value);
-        toast('Ссылка скопирована');
+        ok = document.execCommand('copy');
     } catch {
-        input.focus();
-        input.select();
-        toast('Скопируйте ссылку из поля');
+        ok = false;
+    }
+    area.remove();
+    return ok;
+}
+
+let copyTimer = null;
+$('btn-copy').addEventListener('click', async () => {
+    const btn = $('btn-copy');
+    if (await copyText($('share-link').textContent)) {
+        btn.textContent = 'Ссылка скопирована ✓';
+        clearTimeout(copyTimer);
+        copyTimer = setTimeout(() => { btn.textContent = 'Скопировать ссылку'; }, 2500);
+    } else {
+        const range = document.createRange();
+        range.selectNodeContents($('share-link'));
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        toast('Не удалось скопировать: ссылка выделена, скопируйте её вручную');
     }
 });
 
@@ -545,7 +623,6 @@ for (const btn of document.querySelectorAll('.js-leave')) {
         if (state && state.phase !== 'waiting' && state.phase !== 'finished' && !(await ask('Выйти из комнаты? Партия будет засчитана как поражение.'))) return;
         const token = session && session.token;
         forgetSession();
-        history.replaceState(null, '', location.pathname);
         if (token) api('/api/leave', { token }).catch(() => {});
     });
 }
@@ -610,15 +687,17 @@ ownBoard.el.addEventListener('pointerleave', () => {
 // ---------- запуск ----------
 
 async function start() {
-    const hashCode = location.hash.replace('#', '').toUpperCase();
     if (session && session.token) {
         const result = await checkSession();
         if (result === 'gone') {
+            // ссылка на свою же закрытую комнату - не приглашение
+            if (hashCode() === session.room) history.replaceState(null, '', location.pathname);
             session = null;
             store.remove(STORE_SESSION);
         } else {
-            // ссылка на другую комнату: остаёмся в текущей игре, код будет подставлен после выхода
-            if (/^[A-Z0-9]{4}$/.test(hashCode) && hashCode !== session.room) $('code').value = hashCode;
+            // ссылка на другую комнату: остаёмся в текущей игре, приглашение покажем после выхода
+            const invite = hashCode();
+            if (invite && invite !== session.room) pendingInvite = invite;
             render();
             if (result === 'retry') {
                 $('conn-banner').hidden = false;
@@ -629,9 +708,9 @@ async function start() {
             return;
         }
     }
-    if (/^[A-Z0-9]{4}$/.test(hashCode)) $('code').value = hashCode;
+    const mode = setStartMode();
     render();
-    ($('name').value ? $('code').value ? $('join-form').querySelector('button') : $('btn-create') : $('name')).focus();
+    focusStart(mode);
 }
 
 start();

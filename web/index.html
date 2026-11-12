@@ -22,29 +22,42 @@
 
 <main>
     <section id="screen-start" class="screen card start" hidden>
-        <p class="lead">Игра на двоих по сети. Создайте комнату и отправьте ссылку сопернику или войдите по коду.</p>
+        <p id="start-lead" class="lead">Игра на двоих по сети.</p>
+        <div id="invite" class="invite" hidden>
+            <p>Вас пригласили в комнату</p>
+            <div id="invite-code" class="big-code"></div>
+        </div>
         <label class="field">
             <span>Имя</span>
             <input id="name" maxlength="20" autocomplete="nickname" placeholder="Как вас зовут">
         </label>
-        <button id="btn-create" class="btn btn-primary btn-wide">Создать игру</button>
-        <div class="divider"><span>или</span></div>
-        <form id="join-form" class="join">
-            <label class="field">
+
+        <div id="start-choice" class="choice">
+            <button id="btn-create" class="btn btn-primary btn-big">Создать игру
+                <small>получить ссылку для соперника</small></button>
+            <button id="btn-to-join" class="btn btn-big">Войти по коду
+                <small>соперник уже создал игру</small></button>
+        </div>
+
+        <form id="join-form" class="join-form" hidden>
+            <label class="field" id="code-field">
                 <span>Код комнаты</span>
                 <input id="code" maxlength="4" autocapitalize="characters" autocomplete="off" placeholder="K7M2">
             </label>
-            <button class="btn">Войти</button>
+            <button id="btn-join" class="btn btn-primary btn-wide">Войти</button>
+            <button id="btn-back" type="button" class="btn btn-ghost btn-wide">Назад</button>
         </form>
+
         <div id="start-error" class="form-error" role="alert"></div>
+        <button id="btn-home" class="btn btn-ghost btn-wide" hidden>На главную</button>
     </section>
 
     <section id="screen-wait" class="screen card wait" hidden>
         <p>Комната создана. Код для соперника:</p>
         <div id="wait-code" class="big-code"></div>
         <div class="share">
-            <input id="share-link" readonly aria-label="Ссылка на комнату">
-            <button id="btn-copy" class="btn btn-primary">Скопировать ссылку</button>
+            <button id="btn-copy" class="btn btn-primary btn-wide">Скопировать ссылку</button>
+            <div id="share-link" class="share-link"></div>
         </div>
         <p class="muted">Ждём второго игрока…</p>
         <button class="btn btn-ghost js-leave">Выйти</button>
