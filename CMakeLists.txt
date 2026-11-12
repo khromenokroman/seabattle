@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.1)
 project(seabattle
-        VERSION 0.6.0.0
+        VERSION 0.6.1.0
         LANGUAGES CXX
         HOMEPAGE_URL "https://github.com/khromenokroman/seabattle")
 
@@ -35,6 +35,7 @@ target_compile_options(${PROJECT_NAME}-core PRIVATE -Wall -Wextra)
 add_library(${PROJECT_NAME}-server STATIC
         server/api.cpp
         server/json_io.cpp
+        server/network.cpp
         server/options.cpp
         server/rooms.cpp
 )
@@ -67,6 +68,7 @@ if (BUILD_TESTS)
     add_executable(${PROJECT_NAME}-server-tests
             tests/server/api_test.cpp
             tests/server/json_io_test.cpp
+            tests/server/network_test.cpp
             tests/server/options_test.cpp
             tests/server/rooms_test.cpp
     )

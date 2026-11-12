@@ -53,8 +53,10 @@ a.$('btn-create').click();
 await waitFor(() => a.shown('screen-wait'), 'Алиса: нет экрана ожидания после «Создать игру»');
 const code = a.$('wait-code').textContent.trim();
 expect(/^[A-Z0-9]{4}$/.test(code), `код комнаты "${code}"`);
+await waitFor(() => a.$('share-link').textContent.trim() !== '', 'ссылка на комнату не появилась');
 const link = a.$('share-link').textContent.trim();
 expect(link.endsWith('#' + code), `ссылка ${link} без кода`);
+expect(link.startsWith('http://seabattle.test:'), `ссылка ${link} не из --public-url (страница открыта по 127.0.0.1)`);
 a.$('btn-copy').click();
 await waitFor(() => /скопирована/.test(a.$('btn-copy').textContent) || /скопируйте/.test(a.$('toast').textContent),
     '«Скопировать ссылку» ничего не сделала');

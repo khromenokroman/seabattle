@@ -22,6 +22,13 @@ Options parse_options(int argc, const char *const argv[]) {
             opts.host = value();
         } else if (arg == "--web") {
             opts.web = value();
+        } else if (arg == "--public-url") {
+            auto url = value();
+            if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0) {
+                throw std::invalid_argument("--public-url должен начинаться с http:// или https://: " + url);
+            }
+            while (!url.empty() && url.back() == '/') url.pop_back();
+            opts.public_url = url;
         } else if (arg == "--port") {
             const auto text = value();
             int port = 0;
@@ -45,6 +52,8 @@ std::string usage(const std::string &program) {
            "  --port ПОРТ   порт HTTP (по умолчанию 8090)\n"
            "  --web КАТАЛОГ файлы веб-клиента (по умолчанию " SEABATTLE_WEB_DIR
            ")\n"
+           "  --public-url URL  внешний адрес для ссылки-приглашения (за прокси или в Docker),\n"
+           "                например http://192.168.1.10:8090\n"
            "  --version     версия\n"
            "  --help        эта справка\n";
 }

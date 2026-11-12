@@ -16,12 +16,14 @@ namespace {
 class ApiTest : public ::testing::Test {
    protected:
     void SetUp() override {
-        setup_api(m_server, m_rooms, ApiConfig{std::chrono::milliseconds(50)});
+        setup_api(m_server, m_rooms, config());
         m_port = m_server.bind_to_any_port("127.0.0.1");
         ASSERT_GT(m_port, 0) << "не удалось занять порт";
         m_thread = std::thread([this] { m_server.listen_after_bind(); });
         m_server.wait_until_ready();
     }
+
+    virtual ApiConfig config() const { return ApiConfig{std::chrono::milliseconds(50)}; }
 
     void TearDown() override {
         m_rooms.shutdown();
@@ -77,7 +79,32 @@ class ApiTest : public ::testing::Test {
     int m_port = 0;
 };
 
+/// Сервер с заданными --public-url и адресами в сети.
+class ApiShareTest : public ApiTest {
+   protected:
+    ApiConfig config() const override {
+        ApiConfig c{std::chrono::milliseconds(50)};
+        c.public_url = "https://game.example";
+        c.addresses = [] { return std::vector<std::string>{"192.168.1.10", "10.0.0.5"}; };
+        return c;
+    }
+};
+
 } // namespace
+
+// GET /api/share: без настроек - пустой public_url и пустой список адресов
+TEST_F(ApiTest, ShareDefaults) {
+    const auto [code, body] = get("/api/share");
+    ASSERT_EQ(code, 200) << "ответ: " << body.dump();
+    EXPECT_EQ(body, json({{"public_url", ""}, {"addresses", json::array()}})) << "ответ: " << body.dump();
+}
+
+// GET /api/share отдаёт --public-url и адреса из ApiConfig в исходном порядке
+TEST_F(ApiShareTest, Share) {
+    const auto [code, body] = get("/api/share");
+    ASSERT_EQ(code, 200) << "ответ: " << body.dump();
+    EXPECT_EQ(body, json({{"public_url", "https://game.example"}, {"addresses", {"192.168.1.10", "10.0.0.5"}}})) << "ответ: " << body.dump();
+}
 
 // Версия и случайный флот
 TEST_F(ApiTest, VersionAndRandomFleet) {

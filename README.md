@@ -1,4 +1,4 @@
-# seabattle
+ый# seabattle
 
 <p align="center">
   <img src="docs/screenshot.png" alt="Бой на компьютере" width="640">
@@ -42,6 +42,11 @@ docker compose up -d        # docker-compose.yml из репозитория
 # или
 docker run -d -p 8090:8090 ghcr.io/khromenokroman/seabattle:latest
 ```
+
+Ссылка для соперника строится из адреса, по которому открыта страница. Если открыть игру через
+`localhost`, сервер подставит свой адрес в сети, а при нескольких адресах под ссылкой будет выбор.
+В Docker контейнер не знает адреса компьютера: откройте игру по адресу в сети или передайте его
+сами, `docker run ... seabattle:latest --public-url http://192.168.1.10:8090` (за прокси - его адрес).
 
 Снаружи локальной сети ставьте сервер за обратный прокси с HTTPS (nginx, Caddy). Для nginx у
 `/api/events` нужно отключить буферизацию (`proxy_buffering off;`), сервер дополнительно шлёт
