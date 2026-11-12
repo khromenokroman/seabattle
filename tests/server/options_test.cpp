@@ -21,6 +21,7 @@ TEST(Options, Defaults) {
     EXPECT_EQ(o.host, "0.0.0.0");
     EXPECT_EQ(o.port, 8090);
     EXPECT_EQ(o.web, SEABATTLE_WEB_DIR);
+    EXPECT_EQ(o.public_url, "");
     EXPECT_FALSE(o.help);
     EXPECT_FALSE(o.version);
 }
@@ -35,10 +36,27 @@ TEST(Options, AllValues) {
     EXPECT_TRUE(o.version);
 }
 
+// --public-url: http и https принимаются, завершающие / отрезаются
+TEST(Options, PublicUrl) {
+    for (const auto &[arg, expected] :
+         std::vector<std::pair<const char *, const char *>>{{"http://192.168.1.10:8090", "http://192.168.1.10:8090"},
+                                                            {"https://game.example/", "https://game.example"},
+                                                            {"https://game.example/sea//", "https://game.example/sea"}}) {
+        SCOPED_TRACE(std::string("--public-url ") + arg);
+        EXPECT_EQ(parse({"--public-url", arg}).public_url, expected);
+    }
+}
+
 // Неправильный порт, неизвестный параметр и параметр без значения отклоняются
 TEST(Options, Rejects) {
-    const std::vector<std::vector<const char *>> cases = {{"--port", "0"}, {"--port", "65536"}, {"--port", "80x"},
-                                                          {"--port", ""},  {"--bogus"},         {"--host"}};
+    const std::vector<std::vector<const char *>> cases = {{"--port", "0"},
+                                                          {"--port", "65536"},
+                                                          {"--port", "80x"},
+                                                          {"--port", ""},
+                                                          {"--bogus"},
+                                                          {"--host"},
+                                                          {"--public-url", "192.168.1.10:8090"},
+                                                          {"--public-url", "ftp://host"}};
     for (const auto &args : cases) {
         std::string text;
         for (const auto *a : args) text += std::string(a) + ' ';
@@ -50,7 +68,7 @@ TEST(Options, Rejects) {
 // Справка содержит все параметры
 TEST(Options, Usage) {
     const auto text = usage("seabattle");
-    for (const char *opt : {"--host", "--port", "--web", "--version", "--help"}) {
+    for (const char *opt : {"--host", "--port", "--web", "--public-url", "--version", "--help"}) {
         EXPECT_NE(text.find(opt), std::string::npos) << "в справке нет " << opt;
     }
 }

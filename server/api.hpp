@@ -1,6 +1,9 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
+#include <string>
+#include <vector>
 
 #include "httplib.h"
 #include "rooms.hpp"
@@ -16,6 +19,10 @@ namespace seabattle::server {
 struct ApiConfig {
     /// Интервал строки-комментария `: ping` в потоке событий.
     std::chrono::milliseconds ping{15000};
+    /// Внешний адрес из --public-url для ссылки-приглашения, пустой - не задан.
+    std::string public_url;
+    /// Адреса сервера в сети для GET /api/share; не задано - пустой список.
+    std::function<std::vector<std::string>()> addresses;
 };
 
 /**

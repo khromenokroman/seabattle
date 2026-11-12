@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #include "api.hpp"
+#include "network.hpp"
 #include "options.hpp"
 
 using namespace seabattle::server;
@@ -50,7 +52,11 @@ int main(int argc, char *argv[]) {
     RoomManager rooms;
     httplib::Server server;
     server.new_task_queue = [] { return new httplib::ThreadPool(WORKERS); };
-    setup_api(server, rooms);
+    ApiConfig api;
+    api.public_url = opts.public_url;
+    // в контейнере свои адреса снаружи недоступны: ссылку строит клиент или --public-url
+    api.addresses = [] { return in_container() ? std::vector<std::string>{} : pick_addresses(system_interfaces()); };
+    setup_api(server, rooms, api);
     server.set_mount_point("/", opts.web);
 
     std::mutex stop_mutex;
@@ -76,6 +82,11 @@ int main(int argc, char *argv[]) {
     });
 
     std::cout << "seabattle " << SEABATTLE_VERSION << ": http://" << opts.host << ':' << opts.port << '/' << std::endl;
+    if (opts.host == "0.0.0.0") {
+        for (const auto &address : api.addresses()) {
+            std::cout << "  в сети: http://" << address << ':' << opts.port << '/' << std::endl;
+        }
+    }
     const bool ok = server.listen(opts.host, opts.port);
     if (!ok) {
         std::cerr << "Не удалось слушать " << opts.host << ':' << opts.port << '\n';

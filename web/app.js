@@ -408,7 +408,7 @@ function render() {
     if (phase === 'waiting') {
         showScreen('screen-wait');
         $('wait-code').textContent = state.room;
-        $('share-link').textContent = location.origin + location.pathname + '#' + state.room;
+        renderShareLink();
         return;
     }
     showScreen('screen-game');
@@ -526,6 +526,56 @@ function renderFinish() {
     $('finish-note').textContent = notes.join(' · ');
     $('btn-rematch').disabled = state.rematch.you;
 }
+
+// Ссылка-приглашение. Страница, открытая по localhost или 0.0.0.0, не годится для соперника: адрес
+// берётся из --public-url сервера или из его адресов в сети (GET /api/share).
+const STORE_SHARE_HOST = 'seabattle.share-host';
+let share = null; // ответ /api/share; null - ещё не запрашивали
+
+function localPage() {
+    const host = location.hostname.replace(/^\[|\]$/g, '');
+    return host === 'localhost' || host === '0.0.0.0' || host === '::1' || /^127\./.test(host);
+}
+
+function shareBase() {
+    if (!localPage()) return location.origin + location.pathname;
+    if (!share || share.pending) return '';
+    if (share.public_url) return share.public_url + '/';
+    const host = $('share-host').value;
+    if (!host) return location.origin + location.pathname;
+    return `${location.protocol}//${host}${location.port ? ':' + location.port : ''}${location.pathname}`;
+}
+
+function renderShareLink() {
+    if (localPage() && !share) {
+        share = { pending: true };
+        fetch('/api/share', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((data) => { share = data; fillShareHosts(); renderShareLink(); })
+            .catch(() => { share = { public_url: '', addresses: [] }; renderShareLink(); });
+    }
+    const local = localPage() && share && !share.public_url;
+    const addresses = (local && share.addresses) || [];
+    $('share-host-field').hidden = addresses.length < 2;
+    $('share-hint').hidden = !(local && share.addresses && addresses.length === 0);
+    $('share-hint').textContent = 'Сервер не знает своего адреса в сети: откройте игру по адресу компьютера, '
+        + 'а не localhost, или запустите сервер с --public-url';
+    const base = shareBase();
+    $('share-link').textContent = base && state ? base + '#' + state.room : '';
+    $('btn-copy').disabled = !base;
+}
+
+function fillShareHosts() {
+    const select = $('share-host');
+    select.replaceChildren(...(share.addresses || []).map((a) => new Option(a, a)));
+    const saved = store.get(STORE_SHARE_HOST);
+    if (saved && (share.addresses || []).includes(saved)) select.value = saved;
+}
+
+$('share-host').addEventListener('change', () => {
+    store.set(STORE_SHARE_HOST, $('share-host').value);
+    renderShareLink();
+});
 
 // ---------- обработчики ----------
 

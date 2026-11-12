@@ -129,6 +129,8 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .big-code { font-size: 44px; font-weight: 700; letter-spacing: 8px; text-align: center; color: var(--accent); }
 
 .share { display: flex; flex-direction: column; gap: 8px; }
+.share-hint { margin: 0; font-size: 13px; color: var(--danger); text-align: center; }
+select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .share-link { font-size: 13px; color: var(--muted); text-align: center; word-break: break-all; user-select: all; }
 
 .muted { color: var(--muted); }
@@ -265,6 +267,8 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 420px) {
     :root { --cell: calc((100vw - 32px - 20px) / 11); }
     .top h1 { font-size: 19px; }
+    .top .btn-icon { margin-left: auto; }
+    .room-badge { order: 3; width: 100%; margin-left: 0; }
     .card { padding: 16px; }
     .status { font-size: 19px; }
     .board-wrap.side { max-width: none; width: 100%; }

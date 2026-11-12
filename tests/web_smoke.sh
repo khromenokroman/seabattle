@@ -46,7 +46,7 @@ PORT=$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=
 BASE="http://127.0.0.1:$PORT"
 LOG=$(mktemp /tmp/seabattle-web-smoke.XXXXXX.log)
 
-"$BIN" --host 127.0.0.1 --port "$PORT" --web "$WEB" >"$LOG" 2>&1 &
+"$BIN" --host 127.0.0.1 --port "$PORT" --web "$WEB" --public-url "http://seabattle.test:$PORT" >"$LOG" 2>&1 &
 SERVER_PID=$!
 cleanup() {
     kill "$SERVER_PID" 2>/dev/null

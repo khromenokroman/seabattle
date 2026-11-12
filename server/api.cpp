@@ -71,6 +71,11 @@ void setup_api(httplib::Server &server, RoomManager &rooms, ApiConfig config) {
 
     server.Get("/api/version", guarded([](const httplib::Request &, httplib::Response &res) { reply(res, {{"version", SEABATTLE_VERSION}}); }));
 
+    server.Get("/api/share", guarded([config](const httplib::Request &, httplib::Response &res) {
+                   const auto addresses = config.addresses ? config.addresses() : std::vector<std::string>{};
+                   reply(res, {{"public_url", config.public_url}, {"addresses", addresses}});
+               }));
+
     server.Get("/api/random-fleet", guarded([](const httplib::Request &, httplib::Response &res) {
                    thread_local std::mt19937 rng{std::random_device{}()};
                    auto ships = nlohmann::json::array();
