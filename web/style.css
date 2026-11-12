@@ -100,11 +100,11 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 #code { text-transform: uppercase; letter-spacing: 3px; }
 
-.join { display: flex; gap: 8px; align-items: flex-end; }
-.join .field { flex: 1; }
-
-.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
-.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.choice, .join-form { display: flex; flex-direction: column; gap: 10px; }
+.btn-big { padding: 14px 16px; font-size: 17px; font-weight: 600; display: flex; flex-direction: column; gap: 2px; }
+.btn-big small { font-size: 13px; font-weight: 400; opacity: .8; }
+.invite { text-align: center; }
+.invite p { margin: 0; }
 
 .form-error { color: var(--danger); min-height: 1.4em; font-size: 14px; }
 
@@ -129,6 +129,7 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .big-code { font-size: 44px; font-weight: 700; letter-spacing: 8px; text-align: center; color: var(--accent); }
 
 .share { display: flex; flex-direction: column; gap: 8px; }
+.share-link { font-size: 13px; color: var(--muted); text-align: center; word-break: break-all; user-select: all; }
 
 .muted { color: var(--muted); }
 

@@ -15,7 +15,7 @@ async function waitFor(cond, text, ms) {
 
 if (PHASE === 'start') {
     await waitFor(() => shown('screen-start'), 'стартовый экран не появился');
-    expect(!!btn('Создать игру'), 'на стартовом экране нет кнопки «Создать игру»');
+    expect(shown('start-choice') && /^Создать игру/.test(document.getElementById('btn-create').textContent.trim()), 'на стартовом экране нет кнопки «Создать игру»');
     log.push('стартовый экран: кнопка «Создать игру» есть');
 }
 
