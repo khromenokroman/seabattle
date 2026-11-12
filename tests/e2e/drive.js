@@ -32,6 +32,7 @@ const chrome = spawn(process.env.CHROME || 'google-chrome',
 const out = chrome.stdio[3], inp = chrome.stdio[4];
 let buf = '', nextId = 1;
 const waiting = new Map();
+const events = new Map(); // имя события CDP -> обработчик
 inp.on('data', d => {
     buf += d.toString();
     let i;
@@ -41,6 +42,8 @@ inp.on('data', d => {
         if (msg.id && waiting.has(msg.id)) {
             waiting.get(msg.id)(msg);
             waiting.delete(msg.id);
+        } else if (msg.method && events.has(msg.method)) {
+            events.get(msg.method)(msg);
         }
     }
 });
@@ -76,7 +79,11 @@ let shotPoll = 0, timer = 0;
     }
     await send('Emulation.setDeviceMetricsOverride',
         {width, height, deviceScaleFactor: 1, mobile: width < 500}, sessionId);
+    // Page.navigate отвечает до загрузки: без ожидания load сценарий может выполниться в about:blank
+    const loaded = new Promise((resolve) => events.set('Page.loadEventFired', resolve));
     await send('Page.navigate', {url}, sessionId);
+    await loaded;
+    events.delete('Page.loadEventFired');
 
     const limit = Number(process.env.E2E_TIMEOUT || 30);
     timer = setTimeout(() => {
