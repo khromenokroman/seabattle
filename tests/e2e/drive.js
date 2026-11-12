@@ -26,7 +26,7 @@ const shotsDir = process.env.SHOTS || '';
 const profile = fs.mkdtempSync('/tmp/seabattle-chrome-');
 
 const chrome = spawn(process.env.CHROME || 'google-chrome',
-    ['--headless=new', '--disable-gpu', '--no-sandbox', '--remote-debugging-pipe',
+    ['--headless=new', '--disable-gpu', '--no-sandbox', '--remote-debugging-pipe', '--autoplay-policy=no-user-gesture-required',
         '--user-data-dir=' + profile, 'about:blank'],
     {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
 const out = chrome.stdio[3], inp = chrome.stdio[4];

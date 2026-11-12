@@ -1,5 +1,7 @@
 // Клиент «Морского боя»: экраны рисуются целиком из снимка состояния, который присылает сервер (docs/protocol.md).
 
+import { is_muted, play_finish, play_shot, play_turn, set_muted } from './sound.js';
+
 const SIZE = 10;
 const LETTERS = 'АБВГДЕЖЗИК';
 const STORE_SESSION = 'seabattle.session';
@@ -76,9 +78,11 @@ function connect() {
     events.addEventListener('state', (e) => {
         $('conn-banner').hidden = true;
         $('replaced-banner').hidden = true;
+        const prev = state;
         state = JSON.parse(e.data);
         settlePendingShot();
         render();
+        notify(prev, state);
     });
     // игра открыта в другой вкладке: не переподключаться самим, иначе вкладки будут отбирать поток друг у друга
     events.addEventListener('closed', () => {
@@ -124,6 +128,39 @@ function startSession(joined) {
     history.replaceState(null, '', location.pathname + '#' + joined.room);
     connect();
 }
+
+// Звуки и заголовок вкладки по смене снимка. Первый снимок после подключения не озвучивается:
+// иначе после перезагрузки страницы прозвучал бы старый выстрел.
+const TITLE = document.title;
+
+function notify(prev, next) {
+    const myTurn = next.phase === 'playing' && next.turn === 'you';
+    document.title = myTurn && document.hidden ? '▶ Ваш ход · ' + TITLE : TITLE;
+    if (!prev || prev.room !== next.room) return;
+    const shot = next.last_shot;
+    const isNewShot = shot && JSON.stringify(shot) !== JSON.stringify(prev.last_shot);
+    if (isNewShot) play_shot(shot.result);
+    if (next.phase === 'finished' && prev.phase === 'playing') play_finish(next.winner === 'you');
+    const wasMyTurn = prev.phase === 'playing' && prev.turn === 'you';
+    if (myTurn && !wasMyTurn) play_turn(isNewShot ? 1.2 : 0);
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) document.title = TITLE;
+});
+
+function updateSoundButton() {
+    const btn = $('btn-sound');
+    btn.textContent = is_muted() ? '🔇' : '🔊';
+    btn.title = is_muted() ? 'Включить звук' : 'Выключить звук';
+    btn.setAttribute('aria-pressed', String(!is_muted()));
+}
+
+$('btn-sound').addEventListener('click', () => {
+    set_muted(!is_muted());
+    updateSoundButton();
+});
+updateSoundButton();
 
 function forgetSession() {
     disconnect();
