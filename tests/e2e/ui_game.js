@@ -2,6 +2,7 @@
 // На странице два iframe с клиентом - два игрока. Только нажатия на кнопки и клетки, как у человека:
 // создание комнаты, вход по коду, ручная расстановка кликами и «Случайно», бой до победы, ещё партия,
 // выход с подтверждением. Ошибки JavaScript в любом из клиентов - провал.
+// Звук включён (autoplay в drive.js): ошибки синтеза звуков при выстрелах тоже провал.
 // Помощники: sleep, btn, expect, log, shot.
 
 const FLEET = [[0, 0, 4], [5, 0, 3], [0, 2, 3], [4, 2, 2], [7, 2, 2], [0, 4, 2], [3, 4, 1], [5, 4, 1], [7, 4, 1], [9, 4, 1]];
@@ -26,6 +27,7 @@ async function player(name, src) {
     win.addEventListener('error', (e) => errors.push(`${name}: ${e.message}`));
     win.addEventListener('unhandledrejection', (e) => errors.push(`${name}: ${e.reason}`));
     const $ = (id) => win.document.getElementById(id);
+    win.document.dispatchEvent(new win.PointerEvent('pointerdown')); // звук включается по первому нажатию
     return {
         name, $, win,
         shown: (id) => !$(id).hidden,
@@ -39,6 +41,10 @@ document.body.innerHTML = '';
 document.body.style.background = '#fff';
 const a = await player('Алиса');
 await waitFor(() => a.shown('screen-start'), 'стартовый экран не появился');
+a.$('btn-sound').click();
+expect(a.$('btn-sound').textContent === '🔇', 'кнопка звука не выключила звук');
+a.$('btn-sound').click();
+expect(a.$('btn-sound').textContent === '🔊', 'кнопка звука не включила звук');
 expect(a.shown('start-choice') && !a.shown('join-form'), 'на главной не выбор «Создать игру» / «Войти по коду»');
 
 // создание комнаты, копирование ссылки
